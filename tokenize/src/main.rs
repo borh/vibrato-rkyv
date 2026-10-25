@@ -79,9 +79,6 @@ fn main() -> Result<(), Box<dyn Error>> {
                     out.write_all(b"\n")?;
                 }
                 out.write_all(b"EOS\n")?;
-                if is_tty {
-                    out.flush()?;
-                }
             }
             OutputMode::Wakati => {
                 for i in 0..worker.num_tokens() {
@@ -91,9 +88,6 @@ fn main() -> Result<(), Box<dyn Error>> {
                     out.write_all(worker.token(i).surface().as_bytes())?;
                 }
                 out.write_all(b"\n")?;
-                if is_tty {
-                    out.flush()?;
-                }
             }
             OutputMode::Detail => {
                 for i in 0..worker.num_tokens() {
@@ -111,12 +105,13 @@ fn main() -> Result<(), Box<dyn Error>> {
                     )?;
                 }
                 out.write_all(b"EOS\n")?;
-                if is_tty {
-                    out.flush()?;
-                }
             }
+        }
+        if is_tty {
+            out.flush()?;
         }
     }
 
+    out.flush()?;
     Ok(())
 }
