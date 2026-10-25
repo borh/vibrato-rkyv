@@ -42,7 +42,7 @@ fn prepare_sudachi_dictionary(
 
     for i in 0..archive.len() {
         let mut file = archive.by_index(i)?;
-        let file_name = file.mangled_name().to_string_lossy().to_string();
+        let file_name = file.mangled_name()?.to_string_lossy().to_string();
         if file_name.ends_with(".dic") {
             println!("Extracting {} to {}", file_name, dict_path.display());
             let mut outfile = File::create(&dict_path)?;
