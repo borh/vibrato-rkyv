@@ -123,6 +123,16 @@ Beyond the core change to `rkyv` for faster loading, `vibrato-rkyv` includes sev
 * N-best Tokenization (Experimental)
 An experimental feature for retrieving multiple tokenization candidates, sorted by cost, has been added in response to an upstream feature request ([upstream issue #151](https://github.com/daac-tools/vibrato/issues/151)). The implementation employs an A* search algorithm, which helps handle ambiguity in downstream NLP tasks.
 
+## WebAssembly
+
+`vibrato-rkyv` supports `wasm32-unknown-unknown` and `wasm32-wasip1` with default features disabled:
+
+```toml
+vibrato-rkyv = { version = "x.y.z", default-features = false }
+```
+
+Use `Dictionary::from_bytes` to load dictionaries from memory. On WASI, `Dictionary::from_path` is also available when filesystem access is provided. File-based loading is not supported on browser targets.
+
 ## Features
 
 ### Fast tokenization

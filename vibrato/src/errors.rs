@@ -79,6 +79,7 @@ pub enum VibratoError {
 
     /// The error variant for [`tempfile::PathPersistError`](tempfile::PathPersistError).
     #[error(transparent)]
+    #[cfg(not(target_family = "wasm"))]
     PathPersist(#[from] tempfile::PersistError),
 }
 
@@ -185,6 +186,7 @@ pub enum DownloadError {
     #[error("HTTP error: {0}")]
     HttpStatus(reqwest::StatusCode),
     #[error(transparent)]
+    #[cfg(not(target_family = "wasm"))]
     PathPersist(#[from] tempfile::PersistError),
     #[error("Cache directory I/O error at path '{path}'")]
     CacheIo {

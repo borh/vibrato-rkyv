@@ -9,13 +9,20 @@ pub(crate) mod mapper;
 pub(crate) mod unknown;
 pub(crate) mod word_idx;
 
+#[cfg(not(target_family = "wasm"))]
 use std::fs::{self, File, Metadata, create_dir_all};
-use std::io::{self, Read, Seek, SeekFrom, Write};
+#[cfg(not(target_family = "wasm"))]
+use std::io::{self, Seek, SeekFrom};
+use std::io::{Read, Write};
 use std::ops::Deref;
 
+#[cfg(not(target_family = "wasm"))]
 use std::path::PathBuf;
-use std::sync::{Arc, LazyLock};
+use std::sync::Arc;
+#[cfg(not(target_family = "wasm"))]
+use std::sync::LazyLock;
 
+#[cfg(not(target_family = "wasm"))]
 use memmap2::Mmap;
 use rkyv::{
     Archive, Archived, Deserialize, Serialize, access, access_unchecked,
@@ -27,6 +34,7 @@ use rkyv::{
     ser::writer::IoWriter,
     util::{AlignedVec, with_arena},
 };
+#[cfg(not(target_family = "wasm"))]
 use sha2::{Digest, Sha256};
 
 use crate::dictionary::character::{ArchivedCharProperty, CharProperty};
@@ -60,9 +68,11 @@ const DATA_START: usize = MODEL_MAGIC_LEN + PADDING_LEN;
 /// Prefix of magic bytes for legacy bincode-based models.
 pub const LEGACY_MODEL_MAGIC_PREFIX: &[u8] = b"VibratoTokenizer 0.";
 
+#[cfg(not(target_family = "wasm"))]
 pub static GLOBAL_CACHE_DIR: LazyLock<Option<PathBuf>> =
     LazyLock::new(|| dirs::cache_dir().map(|p| p.join("vibrato-rkyv")));
 
+#[cfg(not(target_family = "wasm"))]
 pub static GLOBAL_DATA_DIR: LazyLock<Option<PathBuf>> =
     LazyLock::new(|| dirs::data_local_dir().map(|p| p.join("vibrato-rkyv")));
 
@@ -123,6 +133,7 @@ pub struct DictionaryInner {
 // Wrapper to own the memory buffer (mmap or heap) and provide access to the archived dictionary.
 #[allow(dead_code)]
 enum DictBuffer {
+    #[cfg(not(target_family = "wasm"))]
     Mmap(Mmap),
     Aligned(AlignedVec<16>),
     Unowned,
@@ -556,6 +567,7 @@ impl Dictionary {
     /// - The file is corrupted, has an invalid format, or has a mismatched magic number.
     /// - The file was created with an incompatible version of vibrato.
     /// - (`legacy` feature disabled) A legacy bincode-based dictionary is provided.
+    #[cfg(not(target_family = "wasm"))]
     pub fn from_path<P: AsRef<std::path::Path>>(path: P, mode: LoadMode) -> Result<Self> {
         let path = path.as_ref();
         let mut file = File::open(path).map_err(|e| {
@@ -668,6 +680,15 @@ impl Dictionary {
         }
     }
 
+    /// Reads and validates a dictionary without memory mapping on WebAssembly.
+    ///
+    /// WASI can read a preopened file; browser targets return the filesystem error.
+    /// `mode` is ignored because this path always validates the archive.
+    #[cfg(target_family = "wasm")]
+    pub fn from_path<P: AsRef<std::path::Path>>(path: P, _mode: LoadMode) -> Result<Self> {
+        Self::from_bytes(&std::fs::read(path)?)
+    }
+
     /// Creates a dictionary from a file path using memory-mapping without validation.
     ///
     /// This function is a version of `from_path` that skips data validation for
@@ -698,6 +719,7 @@ impl Dictionary {
     /// The magic number check at the start of the file helps prevent loading a
     /// completely different file type but does not guarantee the integrity of the
     /// subsequent data.
+    #[cfg(not(target_family = "wasm"))]
     pub unsafe fn from_path_unchecked<P: AsRef<std::path::Path>>(path: P) -> Result<Self> {
         let path = path.as_ref();
         let mut file = File::open(path).map_err(|e| {
@@ -941,6 +963,7 @@ impl Dictionary {
     /// Returns an error if the specified `cache_dir` (determined by the `strategy`)
     /// cannot be created or written to, in addition to the errors from
     /// [`from_zstd_with_options`].
+    #[cfg(not(target_family = "wasm"))]
     pub fn from_zstd<P: AsRef<std::path::Path>>(path: P, strategy: CacheStrategy) -> Result<Self> {
         let path = path.as_ref();
 
@@ -1040,6 +1063,7 @@ impl Dictionary {
     /// # }
     /// ```
     #[inline(always)]
+    #[cfg(not(target_family = "wasm"))]
     pub fn from_zstd_with_options<P, Q>(
         path: P,
         cache_dir: Q,
@@ -1319,6 +1343,7 @@ impl Dictionary {
     /// Returns an error if the input file cannot be read, is not a valid Zstandard
     /// archive, the decompressed data is not a valid dictionary, or the output
     /// path cannot be written to.
+    #[cfg(not(target_family = "wasm"))]
     pub fn decompress_zstd<P, Q>(input_path: P, output_path: Q) -> Result<()>
     where
         P: AsRef<std::path::Path>,
@@ -1384,6 +1409,7 @@ impl Dictionary {
 }
 
 #[inline(always)]
+#[cfg(not(target_family = "wasm"))]
 pub(crate) fn compute_metadata_hash(meta: &Metadata) -> String {
     let mut hasher = Sha256::new();
     #[cfg(unix)]
