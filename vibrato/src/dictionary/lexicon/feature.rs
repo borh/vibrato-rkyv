@@ -23,12 +23,22 @@ impl WordFeatures {
     pub fn get(&self, word_id: usize) -> &str {
         &self.features[word_id]
     }
+
+    #[inline(always)]
+    pub fn len(&self) -> usize {
+        self.features.len()
+    }
 }
 
 impl ArchivedWordFeatures {
     #[inline(always)]
     pub fn get(&self, word_id: usize) -> &str {
         &self.features[word_id]
+    }
+
+    #[inline(always)]
+    pub fn len(&self) -> usize {
+        self.features.len()
     }
 }
 

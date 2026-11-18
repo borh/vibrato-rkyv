@@ -37,6 +37,7 @@ use crate::dictionary::unknown::{ArchivedUnkHandler, UnkHandler};
 use crate::errors::{Result, VibratoError};
 
 pub use crate::dictionary::builder::SystemDictionaryBuilder;
+pub use crate::dictionary::lexicon::{LexEntry, LexiconEntries, LexiconRef};
 pub use crate::dictionary::word_idx::WordIdx;
 
 pub(crate) use crate::dictionary::lexicon::WordParam;
@@ -382,6 +383,47 @@ impl Dictionary {
             }
         }
         Ok(lexicon)
+    }
+
+    /// Returns the system lexicon.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// use std::io::Cursor;
+    /// use vibrato_rkyv::{Dictionary, SystemDictionaryBuilder};
+    ///
+    /// let dict = Dictionary::from_inner(SystemDictionaryBuilder::from_readers(
+    ///     Cursor::new("東京,0,0,1,名詞,固有名詞\n京都,0,0,1,名詞,固有名詞\n"),
+    ///     Cursor::new("1 1\n0 0 0\n"),
+    ///     Cursor::new("DEFAULT 0 1 0\n"),
+    ///     Cursor::new("DEFAULT,0,0,100,*\n"),
+    /// )?);
+    ///
+    /// let entries = dict.system_lexicon().entries()?;
+    /// let words: Vec<_> = entries.iter().map(|e| (e.surface(), e.feature())).collect();
+    /// assert_eq!(words, [("東京", "名詞,固有名詞"), ("京都", "名詞,固有名詞")]);
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn system_lexicon(&self) -> LexiconRef<'_> {
+        match self {
+            Self::Archived(dict) => LexiconRef::archived(dict.system_lexicon()),
+            Self::Owned { dict, .. } => LexiconRef::owned(dict.system_lexicon()),
+        }
+    }
+
+    /// Returns the user lexicon stored in this dictionary, or `None` if it has none.
+    ///
+    /// A user lexicon added with [`Tokenizer::with_user_lexicon`](crate::Tokenizer::with_user_lexicon)
+    /// belongs to the tokenizer, not the dictionary; see
+    /// [`Tokenizer::user_lexicon`](crate::Tokenizer::user_lexicon).
+    pub fn user_lexicon(&self) -> Option<LexiconRef<'_>> {
+        match self {
+            Self::Archived(dict) => dict.user_lexicon().as_ref().map(LexiconRef::archived),
+            Self::Owned { dict, .. } => dict.user_lexicon().map(LexiconRef::owned),
+        }
     }
 
     /// Creates a dictionary from `DictionaryInner`.
