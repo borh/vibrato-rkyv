@@ -1,3 +1,4 @@
+mod entries;
 mod feature;
 mod map;
 mod param;
@@ -17,6 +18,7 @@ use crate::dictionary::word_idx::WordIdx;
 use crate::errors::{Result, VibratoError};
 use crate::utils::FromU32;
 
+pub use crate::dictionary::lexicon::entries::{LexEntry, LexiconEntries, LexiconRef};
 pub use crate::dictionary::lexicon::param::WordParam;
 
 /// Lexicon of words.

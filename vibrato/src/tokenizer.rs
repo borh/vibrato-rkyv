@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use crate::Dictionary;
 use crate::dictionary::connector::{ArchivedConnectorWrapper, ConnectorCost, ConnectorWrapper};
-use crate::dictionary::{ArchivedDictionaryInner, DictionaryInner, DictionaryInnerRef};
+use crate::dictionary::{ArchivedDictionaryInner, DictionaryInner, DictionaryInnerRef, LexiconRef};
 use crate::errors::{Result, VibratoError};
 use crate::sentence::Sentence;
 use crate::tokenizer::lattice::{Lattice, LatticeNBest};
@@ -50,6 +50,23 @@ impl Tokenizer {
     pub fn with_user_lexicon<R: std::io::Read>(mut self, reader: R) -> Result<Self> {
         self.user_lexicon = Some(Arc::new(self.dict.prepare_user_lexicon(reader)?));
         Ok(self)
+    }
+
+    /// Returns the system lexicon of the dictionary.
+    pub fn system_lexicon(&self) -> LexiconRef<'_> {
+        self.dict.system_lexicon()
+    }
+
+    /// Returns the user lexicon that this tokenizer searches, or `None` if there is none.
+    ///
+    /// This is the lexicon added with [`Tokenizer::with_user_lexicon`] if there is
+    /// one, and otherwise the dictionary's own [`Dictionary::user_lexicon`], which it
+    /// replaces during tokenization.
+    pub fn user_lexicon(&self) -> Option<LexiconRef<'_>> {
+        match &self.user_lexicon {
+            Some(lexicon) => Some(LexiconRef::owned(lexicon)),
+            None => self.dict.user_lexicon(),
+        }
     }
 
     pub(crate) fn word_feature(&self, index: crate::dictionary::word_idx::WordIdx) -> &str {
