@@ -22,7 +22,17 @@ struct SearchPath {
     /// A pointer to the next node in the path (towards the BOS).
     prev: Option<Rc<SearchPath>>,
     /// The total cost from the EOS to this node (backward cost).
-    backward_cost: i32,
+    backward_cost: i64,
+}
+
+impl Drop for SearchPath {
+    fn drop(&mut self) {
+        // Release the unshared suffix without recursive Rc drops on long sentences.
+        let mut tail = self.prev.take();
+        while let Some(mut path) = tail.and_then(Rc::into_inner) {
+            tail = path.prev.take();
+        }
+    }
 }
 
 /// An item in the priority queue for the A* search.
@@ -33,7 +43,7 @@ struct QueueItem {
     /// The priority of the path, calculated as f(x) = g(x) + h(x).
     ///  - g(x) is the backward_cost from the EOS.
     ///  - h(x) is the forward_cost (min_cost) from the BOS, stored in the node.
-    priority: i32,
+    priority: i64,
 }
 
 impl PartialEq for QueueItem {
@@ -87,7 +97,7 @@ impl<'a> NbestGenerator<'a> {
 }
 
 impl<'a> Iterator for NbestGenerator<'a> {
-    type Item = (Vec<*const Node>, i32);
+    type Item = (Vec<*const Node>, i64);
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(item) = self.queue.pop() {
@@ -126,7 +136,7 @@ impl<'a> Iterator for NbestGenerator<'a> {
                         .word_cost
                 };
                 let new_backward_cost =
-                    current_path.backward_cost + conn_cost + i32::from(word_cost);
+                    current_path.backward_cost + i64::from(conn_cost) + i64::from(word_cost);
                 let new_priority = new_backward_cost + prev_node.min_cost; // f(x) = g(x) + h(x)
 
                 let new_path = Rc::new(SearchPath {

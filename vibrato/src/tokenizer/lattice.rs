@@ -6,8 +6,13 @@ use crate::dictionary::word_idx::WordIdx;
 
 use crate::common::{BOS_EOS_CONNECTION_ID, MAX_SENTENCE_LENGTH};
 
-const MAX_COST: i32 = i32::MAX;
+const MAX_COST: i64 = i64::MAX;
 const INVALID_IDX: u16 = u16::MAX;
+
+/// Narrows a path cost for the accessors that return `i32`.
+pub(crate) fn clamp_cost(cost: i64) -> i32 {
+    cost.clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32
+}
 
 /// A node in the lattice.
 #[derive(Debug, Clone, Copy)]
@@ -21,7 +26,8 @@ pub struct Node {
     pub left_id: u16,
     pub right_id: u16,
     pub min_idx: u16,
-    pub min_cost: i32,
+    /// The minimum cost from BOS. 64 bits wide because a long sentence sums past `i32::MAX`.
+    pub min_cost: i64,
     /// A raw pointer to the head of the linked list of paths connecting from the left.
     pub lpath: *const Path, // null if no path
 }
@@ -47,7 +53,7 @@ impl Default for Node {
             left_id: 0,
             right_id: 0,
             min_idx: 0,
-            min_cost: i32::MAX,
+            min_cost: MAX_COST,
             lpath: std::ptr::null(),
         }
     }
@@ -214,12 +220,12 @@ impl Lattice {
             left_id: word_param.left_id,
             right_id: word_param.right_id,
             min_idx,
-            min_cost: min_cost + i32::from(word_param.word_cost),
+            min_cost: min_cost + i64::from(word_param.word_cost),
             lpath: std::ptr::null(),
         });
     }
 
-    fn search_min_node<C>(&self, start_node: usize, left_id: u16, connector: &C) -> (u16, i32)
+    fn search_min_node<C>(&self, start_node: usize, left_id: u16, connector: &C) -> (u16, i64)
     where
         C: ConnectorCost,
     {
@@ -230,7 +236,7 @@ impl Lattice {
         for (i, left_node) in self.ends[start_node].iter().enumerate() {
             debug_assert!(left_node.is_connected_to_bos());
             let conn_cost = connector.cost(left_node.right_id, left_id);
-            let new_cost = left_node.min_cost + conn_cost;
+            let new_cost = left_node.min_cost + i64::from(conn_cost);
             // Depending on the order of tie-breaking, the result can be different from MeCab.
             // Using <= (not <) will produce results identical to MeCab in most case (empirically).
             let prefer_previous = self.prefer_dictionary_on_tie
@@ -363,7 +369,7 @@ impl LatticeNBest {
         for (i, &lnode_ptr) in self.ends[start_node].iter().enumerate() {
             let lnode = unsafe { &*lnode_ptr };
             let conn_cost = connector.cost(lnode.right_id, BOS_EOS_CONNECTION_ID);
-            let new_cost = lnode.min_cost + conn_cost;
+            let new_cost = lnode.min_cost + i64::from(conn_cost);
 
             if new_cost <= min_cost {
                 min_cost = new_cost;
@@ -417,7 +423,7 @@ impl LatticeNBest {
             }
 
             let conn_cost = connector.cost(lnode.right_id, rnode.left_id);
-            let new_cost = lnode.min_cost.saturating_add(conn_cost);
+            let new_cost = lnode.min_cost + i64::from(conn_cost);
             // Depending on the order of tie-breaking, the result can be different from MeCab.
             // Using <= (not <) will produce results identical to MeCab in most case (empirically).
             if new_cost <= min_cost {
@@ -434,7 +440,7 @@ impl LatticeNBest {
 
         if min_idx != INVALID_IDX {
             rnode.min_idx = min_idx;
-            rnode.min_cost = min_cost.saturating_add(i32::from(word_param.word_cost));
+            rnode.min_cost = min_cost + i64::from(word_param.word_cost);
             self.ends[end_word].push(rnode_ptr);
         }
     }

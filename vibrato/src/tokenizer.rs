@@ -582,6 +582,31 @@ mod tests {
     }
 
     #[test]
+    fn test_path_cost_exceeds_i32_on_a_long_sentence() {
+        let dict = build_test_dictionary(
+            "猫,0,0,32767,neko".as_bytes(),
+            b"1 1\n0 0 0",
+            b"DEFAULT 0 1 0",
+            b"DEFAULT,0,0,32767,*",
+        );
+        let tokenizer = Tokenizer::new(dict);
+        let mut worker = tokenizer.new_worker();
+        let tokens = 70_000;
+        worker.reset_sentence("猫".repeat(tokens));
+        worker.tokenize();
+        assert_eq!(worker.num_tokens(), tokens);
+        let expected = 32_767 * tokens as i64;
+        assert!(expected > i64::from(i32::MAX));
+        assert_eq!(worker.total_cost(), Some(expected));
+        worker.tokenize_nbest(1);
+        assert_eq!(worker.nbest_paths[0].1, expected);
+        assert_eq!(worker.path_cost(0), Some(i32::MAX));
+        // The wider cost fits in the padding `repr(C)` left before `lpath`.
+        #[cfg(target_pointer_width = "64")]
+        assert_eq!(std::mem::size_of::<crate::tokenizer::lattice::Node>(), 56);
+    }
+
+    #[test]
     fn test_tokenize_2() {
         let lexicon_csv = "自然,0,0,1,sizen
 言語,0,0,4,gengo

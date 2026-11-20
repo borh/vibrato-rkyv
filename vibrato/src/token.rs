@@ -2,7 +2,7 @@
 use std::ops::Range;
 
 use crate::dictionary::{LexType, word_idx::WordIdx};
-use crate::tokenizer::lattice::Node;
+use crate::tokenizer::lattice::{Node, clamp_cost};
 use crate::tokenizer::worker::Worker;
 
 /// Resultant token.
@@ -78,11 +78,11 @@ impl<'w> Token<'w> {
         self.worker.tokenizer.word_param(node.word_idx()).word_cost
     }
 
-    /// Gets the total cost from BOS to the token's node.
+    /// Gets the total cost from BOS to the token's node, clamped to the `i32` range.
     #[inline(always)]
     pub fn total_cost(&self) -> i32 {
         let (_, node) = &self.worker.top_nodes[self.index];
-        node.min_cost
+        clamp_cost(node.min_cost)
     }
 
     pub fn to_buf(&self) -> TokenBuf {
@@ -209,7 +209,7 @@ impl<'w> NbestToken<'w> {
     /// to this token's node, calculated during the forward Viterbi pass.
     #[inline(always)]
     pub fn total_cost(&self) -> i32 {
-        self.node().min_cost
+        clamp_cost(self.node().min_cost)
     }
 
     /// Converts this token view into an owned `TokenBuf`.

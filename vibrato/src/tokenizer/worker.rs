@@ -19,7 +19,7 @@ pub struct Worker {
     pub(crate) lattice: LatticeKind,
     pub(crate) top_nodes: Vec<(usize, Node)>,
     pub(crate) counter: Option<ConnIdCounter>,
-    pub(crate) nbest_paths: Vec<(Vec<*const Node>, i32)>,
+    pub(crate) nbest_paths: Vec<(Vec<*const Node>, i64)>,
 }
 
 impl Worker {
@@ -177,9 +177,11 @@ impl Worker {
         self.nbest_paths.len()
     }
 
-    /// Returns the total cost of the path at `path_idx`.
+    /// Returns the total cost of the path at `path_idx`, clamped to the `i32` range.
     pub fn path_cost(&self, path_idx: usize) -> Option<i32> {
-        self.nbest_paths.get(path_idx).map(|(_, cost)| *cost)
+        self.nbest_paths
+            .get(path_idx)
+            .map(|(_, cost)| super::lattice::clamp_cost(*cost))
     }
 }
 
@@ -226,7 +228,7 @@ impl Worker {
             return None;
         }
         match &self.lattice {
-            LatticeKind::For1Best(lattice) => lattice.eos().map(|node| i64::from(node.min_cost)),
+            LatticeKind::For1Best(lattice) => lattice.eos().map(|node| node.min_cost),
             LatticeKind::ForNBest(_) => None,
         }
     }
@@ -267,7 +269,7 @@ impl Worker {
                     left_id: node.left_id,
                     right_id: node.right_id,
                     word_cost: param.word_cost,
-                    cost: i64::from(node.min_cost),
+                    cost: node.min_cost,
                     delta: 0,
                 }
             })
@@ -277,7 +279,7 @@ impl Worker {
             begin[node.start_node].push(i);
         }
         let mut backward = vec![i64::MAX; nodes.len()];
-        let total_cost = i64::from(eos.min_cost);
+        let total_cost = eos.min_cost;
         for (i, node) in nodes.iter().enumerate().rev() {
             let mut rest = if node.range_char.end == eos.start_node {
                 transition(node.right_id, 0)
